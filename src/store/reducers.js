@@ -26,6 +26,9 @@ function web3(state = {}, action) {
 
     case 'TOKEN_BALANCE_LOADED':
       return { ...state, tokenBalance: action.tokenBalance }
+    
+    case 'CURRENT_BLOCK':
+      return { ...state, currentBlock: action.block}
 
     default:
       return state;

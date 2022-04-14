@@ -1,6 +1,8 @@
 require('babel-register');
 require('babel-polyfill');
-require('dotenv').config();
+require('dotenv').config()
+const HDWalletProvider = require('truffle-hdwallet-provider-privkey');
+const privateKeys = process.env.PRIVATE_KEYS || ""
 
 /**
  * Use this file to configure your truffle project. It's seeded with some
@@ -46,9 +48,42 @@ module.exports = {
     // options below to some value.
     //
     development: {
-      host: "172.23.16.1",    // When using WSL, the 127.0.0.1 IP won't work, instead, it is needed to select the WSL option 
+      host: "172.21.128.1",    // When using WSL, the 127.0.0.1 IP won't work, instead, it is needed to select the WSL option 
       port: 7545,             // ganache port
       network_id: "*",        // Any network (default: none)
+    },
+    kovan: {
+      provider: function () {
+        return new HDWalletProvider(
+          privateKeys.split(','), // Array of account private keys
+          `https://kovan.infura.io/v3/${process.env.INFURA_API_KEY}`
+        )
+      },
+      gas: 5000000,
+      gasPrice: 25000000000,
+      network_id: 42
+    },
+    ropsten: {
+      provider: function() {
+        return new HDWalletProvider(
+          privateKeys.split(','), // Array of account private keys
+          `https://ropsten.infura.io/v3/${process.env.INFURA_API_KEY}`
+        )
+      },
+      gas: 5000000,
+      gasPrice: 25000000000,
+      network_id: 3
+    },
+    bsctest: {
+      provider: function() {
+        return new HDWalletProvider(
+          privateKeys.split(','),
+          `https://data-seed-prebsc-1-s1.binance.org:8545`
+        )
+      },
+      gas: 5000000,
+      gasPrice: 25000000000,
+      network_id: 97
     }
   },
   contracts_directory: './src/contracts',
@@ -76,13 +111,13 @@ module.exports = {
   // $ truffle migrate --reset --compile-all
   //
   // db: {
-    // enabled: false,
-    // host: "127.0.0.1",
-    // adapter: {
-    //   name: "sqlite",
-    //   settings: {
-    //     directory: ".db"
-    //   }
-    // }
+  // enabled: false,
+  // host: "127.0.0.1",
+  // adapter: {
+  //   name: "sqlite",
+  //   settings: {
+  //     directory: ".db"
+  //   }
+  // }
   // }
 };

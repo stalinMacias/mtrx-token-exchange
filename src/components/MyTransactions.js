@@ -16,7 +16,9 @@ import {
   orderCancellingSelector,
   myDepositsLoadedSelector,
   myTokenDepositsSelector,
-  myEtherDepositsSelector
+  myEtherDepositsSelector,
+
+  currentBlockSelector
 } from '../store/selectors'
 
 import {
@@ -216,7 +218,9 @@ function mapStateToProps(state) {
     myTokenDeposits: myTokenDepositsSelector(state),
     myEtherDeposits: myEtherDepositsSelector(state),
     exchange: exchangeSelector(state),
-    account : accountSelector(state)
+    account : accountSelector(state),
+
+    currentBlock: currentBlockSelector(state)
     
   }
 }
