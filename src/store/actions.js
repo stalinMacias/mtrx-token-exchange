@@ -29,6 +29,13 @@ export function web3LoadToken(token) {
 	}
 }
 
+export function currentBlockLoad(block) {
+	return {
+		type: 'CURRENT_BLOCK',
+		block:block
+	}
+}
+
 /// Exchange ///
 export function exchangeLoadExchange(exchange) {
 	return {

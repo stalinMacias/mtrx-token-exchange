@@ -11,6 +11,7 @@ import {
   providerNetworkId,
   providerAccount,
   web3LoadToken,
+  currentBlockLoad,
   // Orders
   exchangeLoadExchange,
   cancelledOrdersLoaded,
@@ -41,6 +42,22 @@ import {
   orderMade
 } from './actions'
 import { ETHER_ADDRESS } from '../helpers';
+
+const retrieveStartinBlockDependingCurrentNetwork = async (provider) => {
+  const networkId = await provider.request({ method: 'eth_chainId' });
+
+  // For bsctestnet
+  var startingBlock = 0
+  if (networkId == 97) {
+    // bsctestnet
+    startingBlock = 18446463
+  } else {
+    // ganache
+    startingBlock = 443
+  }
+
+  return startingBlock
+}
 
 ////////////////////// provider dispatcher //////////////////////
 
@@ -118,53 +135,71 @@ export const loadExchange = async (web3, networkVersion, dispatch) => {
 
 }
 
+export const currentBlock = async(web3,dispatch) => {
+  const currentBlock = await web3.eth.getBlockNumber()
+  dispatch(currentBlockLoad(currentBlock))
+}
+
 ////////////////////// subscribeToEvents //////////////////////
 
 // Gets trigger each time the Event is executed
+
 export const subscribeToEvents = async (exchange, dispatch) => {
+  /*
   exchange.events.Cancel({}, (error, event) => {
     dispatch(orderCancelled(event.returnValues))
   })
-
+  */
+  /*
   exchange.events.Trade({}, (error, event) => {
     dispatch(orderFilled(event.returnValues))
   })
-
+  */
+  /*
   exchange.events.Deposit({}, (error, event) => {
+    console.log("Deposist completed",event)
     dispatch(depositCompleted(event.returnValues))
   })
-
+  */
+  /*
   exchange.events.Withdraw({}, (error, event) => {
+    console.log("Withdraw dispatched")
+    console.log(event.returnValues)
     dispatch(withdrawCompleted(event.returnValues))
   })
-
+  */
+  /*
   exchange.events.Order({}, (error, event) => {
+    console.log("Order completed",event)
     dispatch(orderMade(event.returnValues))
   })
-
+  */
 }
 
 ////////////////////// loadAllOrder //////////////////////
 /*
   * To load all the Orders we need to fetch their corresponding Events, because Orders by themselves are an action that occured
 */
-export const loadAllOrder = async (exchange, dispatch) => {
+export const loadAllOrder = async (exchange, dispatch,latestBlock) => {
   // Fetch cancelled orders with the "Cancel" event stream
-  const cancelStream = await exchange.getPastEvents("Cancel", { fromBlock: 0, toBlock: 'latest' });
+  //const cancelStream = await exchange.getPastEvents("Cancel", { fromBlock: 0, toBlock: 'latest' });  // Ganache
+  const cancelStream = await exchange.getPastEvents("Cancel", { fromBlock: latestBlock - 4999, toBlock: latestBlock });
   // Format cancelledOrders
   const cancelledOrders = cancelStream.map((event) => event.returnValues);
   // Dispatch cancelledOrders to the redux store (update the application state)
   dispatch(cancelledOrdersLoaded(cancelledOrders));
 
   // Fetch filled orders with the "Trade" event stream
-  const tradeStream = await exchange.getPastEvents("Trade", { fromBlock: 0, toBlock: 'latest' });
+  //const tradeStream = await exchange.getPastEvents("Trade", { fromBlock: 0, toBlock: 'latest' });  // Ganache
+  const tradeStream = await exchange.getPastEvents("Trade", { fromBlock: latestBlock - 4999, toBlock: latestBlock });
   // Format filledOrders
   const filledOrders = tradeStream.map((event) => event.returnValues);
   // Dispatch filledOrders to the redux store (update the application state)
   dispatch(filledOrdersLoaded(filledOrders));
 
   // Fetch all orders with the "Order" event stream
-  const orderStream = await exchange.getPastEvents("Order", { fromBlock: 0, toBlock: 'latest' });
+  //const orderStream = await exchange.getPastEvents("Order", { fromBlock: 0, toBlock: 'latest' });  // Ganache
+  const orderStream = await exchange.getPastEvents("Order", { fromBlock: latestBlock - 4999, toBlock: latestBlock });
   // Format allOrders
   const allOrders = orderStream.map((event) => event.returnValues);
   // Dispatch allOrders to the redux store (update the application state)
@@ -185,6 +220,10 @@ export const cancelOrder = async (dispatch, exchange, order, account) => {
         window.alert("Error while cancelling the Order")
       }
     })
+    .once('receipt', (receipt) => {
+      dispatch(orderCancelled(receipt.events.Cancel.returnValuess))
+    })
+    
 }
 
 export const fillOrder = async (dispatch, exchange, order, account) => {
@@ -199,6 +238,9 @@ export const fillOrder = async (dispatch, exchange, order, account) => {
       } else {
         window.alert("Error while filling an Order")
       }
+    })
+    .once('receipt', (receipt) => {
+      dispatch(orderFilled(receipt.events.Trade.returnValues))
     })
 }
 
@@ -235,27 +277,35 @@ export const depositEther = (dispatch, exchange, web3, etherDepositAmount, accou
       dispatch(balancesLoading())
     })
     .on('error', (error) => {
-      console.log(error)
+      console.log("Error while depositing ether", error)
       if (error.code === 4001) {
         window.alert("The user canceled the transaction to deposit ETHERs in the Exchange")
       } else {
         window.alert("There was en error while depositing ETHERs into the Exchange!")
       }
     })
+    .once('receipt', (receipt) => {
+      dispatch(depositCompleted(receipt.events.Deposit.returnValues))
+    })
 }
 
 export const withdrawEther = (dispatch, exchange, web3, etherWithdrawAmount, account) => {
   exchange.methods.withdrawEther(web3.utils.toWei(etherWithdrawAmount, 'ether')).send({ from: account })
     .on('transactionHash', (hash) => {
+      console.log("Withdrawal is in process")
       dispatch(balancesLoading())
     })
     .on('error', (error) => {
-      console.log(error)
+      console.log("Error while withdrawing ether", error)
       if (error.code === 4001) {
         window.alert("The user canceled the transaction to withdraw ETHERs from the Exchange")
       } else {
         window.alert("There was en error while withdrawing ETHERs from the Exchange!")
       }
+    })
+    .once('receipt', (receipt) => {
+      window.alert("Ethers have been withdrawn from the exchange to your wallet")
+      dispatch(withdrawCompleted(receipt.events.Withdraw.returnValues))
     })
 }
 
@@ -285,20 +335,30 @@ export const depositToken = (dispatch, exchange, web3, token, tokenDepositAmount
         window.alert("There was en error while approving Tokens to be depositted into the Exchange!")
       }
     })
+    .once('receipt', (receipt) => {
+      dispatch(depositCompleted(receipt.events.Deposit.returnValues))
+    })
+
+    
 }
 
 export const withdrawToken = (dispatch, exchange, web3, token, tokenWithdrawAmount, account) => {
   exchange.methods.withdrawToken(token._address, web3.utils.toWei(tokenWithdrawAmount, 'ether')).send({ from: account })
     .on('transactionHash', (hash) => {
+      console.log("Withdrawal is in process")
       dispatch(balancesLoading())
     })
     .on('error', (error) => {
-      console.log(error)
+      console.log("Error while withdrawing token", error)
       if (error.code === 4001) {
         window.alert("The user canceled the transaction to withdraw Tokens from the Exchange")
       } else {
         window.alert("There was en error while withdrawing Tokens from the Exchange!")
       }
+    })
+    .once('receipt', (receipt) => {
+      window.alert("Tokens have been withdrawn from the exchange to your wallet")
+      dispatch(withdrawCompleted(receipt.events.Withdraw.returnValues))
     })
 }
 
@@ -314,9 +374,14 @@ export const makeBuyOrder = (dispatch,exchange,token,web3,order,account) => {
     dispatch(buyOrderMaking())
   })
   .on('error', (error) => {
-    console.log(error)
+    console.log("Error while making a buy order",error)
     window.alert("Error while making a buy order")
   })
+  .once('receipt', (receipt) => {
+    dispatch(orderMade(receipt.events.Order.returnValues))
+  })
+
+  
 }
 
 export const makeSellOrder = (dispatch,exchange,token,web3,order,account) => {
@@ -330,18 +395,28 @@ export const makeSellOrder = (dispatch,exchange,token,web3,order,account) => {
     dispatch(sellOrderMaking())
   })
   .on('error', (error) => {
-    console.log(error)
+    console.log("Error while making a sell order",error)
     window.alert("Error while making a sell order")
+  })
+  .once('receipt', (receipt) => {
+    dispatch(orderMade(receipt.events.Order.returnValues))
   })
 }
 
 
 ////////////////////// loadAllWithdraws//////////////////////
-export const loadAllWithdraws = async (exchange, dispatch) => {
+export const loadAllWithdraws = async (exchange, dispatch,latestBlock,provider) => {
   // Fetch withdraws with the "Withdraw" event stream
-  const withdrawStream = await exchange.getPastEvents("Withdraw", { fromBlock: 0, toBlock: 'latest' });
+  //const withdrawStream = await exchange.getPastEvents("Withdraw", { fromBlock: 0, toBlock: 'latest' });   // For ganache
+  //const withdrawStream = await exchange.getPastEvents("Withdraw", { fromBlock: latestBlock - 4999, toBlock: latestBlock });
+  
+  const startingBlock = await retrieveStartinBlockDependingCurrentNetwork(provider)
+
+  let withdrawStream = []
+  withdrawStream = await divideAndConquer(exchange, startingBlock, latestBlock, 'Withdraw', withdrawStream)
+  //console.log("withdrawStream :", withdrawStream[0])
   // Format withdraws
-  const allWithdraws = withdrawStream.map((event) => event.returnValues);
+  const allWithdraws = withdrawStream[0].map((event) => event.returnValues );
   // Dispatch withdraws to the redux store
   dispatch(allWithdrawsLoaded(allWithdraws));
   //console.log("Withdraws have been loaded to the redux store")
@@ -350,12 +425,71 @@ export const loadAllWithdraws = async (exchange, dispatch) => {
 
 ////////////////////// loadAllDeposits //////////////////////
 // It is triggered since the application is loaded for the first time & also each time a new deposit is made, the depositStream gets updated
-export const loadAllDeposits = async (exchange,dispatch) => {
+export const loadAllDeposits = async (exchange,dispatch,latestBlock) => {
   // Fetch deposits with the "Deposit" event stream
-  const depositStream = await exchange.getPastEvents("Deposit", { fromBlock: 0, toBlock: 'latest' });
+  //const depositStream = await exchange.getPastEvents("Deposit", { fromBlock: 0, toBlock: 'latest' }); For ganache
+  const depositStream = await exchange.getPastEvents("Deposit", { fromBlock: latestBlock - 4999, toBlock: latestBlock });
   // Format deposits
   const allDeposits = depositStream.map((event) => event.returnValues);
   // Dispatch deposits to the redux store
   dispatch(allDepositsLoaded(allDeposits));
   //console.log("Withdraws have been loaded to the redux store")
+}
+
+                      // ----------------- Divide & Conquer Strategy to getPastEvents in testnets and mainnet ----------------- //
+/*
+  * contract is the contract instance that will be used to call the getPastEvents of an specific Event and retrieve all the event stream
+  * startingBlock
+    - The first time is called the function it represents the block when the Smart Contract was deployed to the network - Of this way we ensure that we are looking for events only when the smart contract was deployed to the network
+  * current_block
+      - Represents the current block in the blockchain; a.k.a. The latest block
+  * event_name - The name of the event to look for
+  * pastEvents - Represents an array / list where the past events of the events stream will be stored and returned after the method complets
+
+*/
+const divideAndConquer = async (contract, startingBlock, current_block, event_name, pastEvents) => {
+  // Given that web3.eth.getPastEvents() method only works for ranges of 5000 blocks, we'll apply a Divide & Conquer strategy....
+  const blockRange = 5000;
+  const mid_block = startingBlock + blockRange;
+
+  //console.log("starting Block: ", startingBlock);
+  //console.log("Mid block: ", mid_block);
+  //console.log("current block: ", current_block)
+
+  if ((startingBlock + blockRange) <= current_block) {
+    try {
+      //////////// GETTING PAST EVENTS in Ranges of 5000 blocks ////////////
+      console.log(`Getting past ${event_name} events from block: ${startingBlock} to ${mid_block}`)
+      const eventsStream = await contract.getPastEvents(
+        `${event_name}`,
+        //'Deposit',
+        {
+          fromBlock: startingBlock,
+          toBlock: mid_block
+        }
+      )
+      //console.log(`Past ${event_name} events:`, eventsStream)
+      pastEvents.push(eventsStream);
+      // Recursive call to get the next 5000 blocks
+      await divideAndConquer(contract,mid_block,current_block,event_name,pastEvents);
+    }
+    catch (error) {
+      console.log(`error while getting the past ${event_name} events :`, error) 
+    }
+  } else {
+    //////////// GETTING PAST EVENTS FOR THE LAST BLOCK ////////////
+    console.log(`Getting past ${event_name} events from block: ${startingBlock} to ${current_block}`)
+    const eventsStream = await contract.getPastEvents(
+      `${event_name}`,
+        //'Deposit',
+      {
+        fromBlock: startingBlock,
+        toBlock: current_block
+      }
+    )
+    //console.log(`Past ${event_name} events:`, eventsStream)
+    pastEvents.push(eventsStream);
+    //console.log("Last range of blocks is: ", (current_block - startingBlock))
+  }
+  return pastEvents;
 }

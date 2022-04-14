@@ -16,7 +16,7 @@ contract Exchange {
 
 	// Mappings
 
-	// tokens mapping is initially set to 0.
+	// tokens mapping is initially set to 0 - Balances
 	mapping(address => mapping(address => uint256)) public tokens; // mapping tokens will map the Token's address onto the user address to get the total tokens owned by the user
 
 	// A way to store an Order
@@ -92,7 +92,7 @@ contract Exchange {
 		// Initialize an instance of the Token Smart Contract to call the transferFrom() function
 		require(Token(_token).transferFrom(msg.sender,address(this),_amount));
 			// The user's address can be accessed through the msg.sender variable - The address that calls this function will be the one where the tokens will be taken from
-			// address(this) will be the address where the tokens will be deposited
+			// address(this) will be the address where the tokens will be deposited - The address of this Smart Contract
 				// * If the transferFrom() function completes successfully means that the tokens were succesfully deposited into the Exchange address
 
 		// Manage deposit - Update the balance - tokens balance in the exchange is represented by the tokens mapping

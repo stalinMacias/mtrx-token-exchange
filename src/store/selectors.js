@@ -21,6 +21,12 @@ export const tokenSelector = createSelector(token, (token) => {
 	return token
 })
 
+const currentBlock = state => get(state,'web3.currentBlock');
+export const currentBlockSelector = createSelector(currentBlock, (block) => {
+	console.log("current block: ", block)
+	return block
+})
+
 const tokenLoaded = state => get(state, 'web3.loaded');
 export const tokenLoadedSelector = createSelector(tokenLoaded, (tokenLoaded) => { return tokenLoaded })  // Returns true or false if the token is loaded or not!
 

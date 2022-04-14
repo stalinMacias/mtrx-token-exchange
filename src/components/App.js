@@ -12,7 +12,8 @@ import {
   loadProvider,
   getAccount,
   loadToken,
-  loadExchange
+  loadExchange,
+  currentBlock
 } from '../store/interactions'
 
 
@@ -69,6 +70,9 @@ class App extends Component {
       // Interactions that will be handled by the exchange reducer //
       // Load the exchange smart contract
       const exchange = await loadExchange(web3,networkVersion,dispatch);
+
+      // Get the current block - latest block
+      await currentBlock(web3,dispatch)
       //console.log('Exchange Smart Contract: ', exchange);
       if(!exchange) {
         window.alert("Exchange Smart Contract not detected on the current network. Please select another network within MetaMask!")
@@ -83,6 +87,8 @@ class App extends Component {
       // if the provider is not detected, detectEthereumProvider resolves to null
       console.error('Please install MetaMask!');
     }
+
+    
 
 
   } // loadBlockchainData
