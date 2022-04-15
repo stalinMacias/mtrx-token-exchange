@@ -37,9 +37,9 @@ class Content extends Component {
     const latestBlock = await web3.eth.getBlockNumber()
 
     //await subscribeToEvents(exchange, dispatch)
-    await loadAllOrder(exchange, dispatch,latestBlock);
+    await loadAllOrder(exchange, dispatch,latestBlock,provider);
     await loadAllWithdraws(exchange, dispatch,latestBlock,provider)
-    await loadAllDeposits(exchange,dispatch,latestBlock)
+    await loadAllDeposits(exchange,dispatch,latestBlock,provider)
   }
 
   render() {
