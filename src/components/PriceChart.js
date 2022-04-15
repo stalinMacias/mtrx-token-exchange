@@ -36,7 +36,7 @@ class PriceChart extends Component {
 
   render() {
     //console.log("priceChartLoaded",this.props.priceChartLoaded)
-    console.log("priceChart: ",this.props.priceChart)
+    //console.log("priceChart: ",this.props.priceChart)
     return (
       <div className="card bg-dark text-white">
         <div className="card-header">

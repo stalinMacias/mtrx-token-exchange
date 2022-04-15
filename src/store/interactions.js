@@ -180,28 +180,63 @@ export const subscribeToEvents = async (exchange, dispatch) => {
 /*
   * To load all the Orders we need to fetch their corresponding Events, because Orders by themselves are an action that occured
 */
-export const loadAllOrder = async (exchange, dispatch,latestBlock) => {
+export const loadAllOrder = async (exchange, dispatch,latestBlock,provider) => {
   // Fetch cancelled orders with the "Cancel" event stream
   //const cancelStream = await exchange.getPastEvents("Cancel", { fromBlock: 0, toBlock: 'latest' });  // Ganache
-  const cancelStream = await exchange.getPastEvents("Cancel", { fromBlock: latestBlock - 4999, toBlock: latestBlock });
-  // Format cancelledOrders
-  const cancelledOrders = cancelStream.map((event) => event.returnValues);
+  //const cancelStream = await exchange.getPastEvents("Cancel", { fromBlock: latestBlock - 4999, toBlock: latestBlock });
+
+  const startingBlock = await retrieveStartinBlockDependingCurrentNetwork(provider)
+
+  let cancelStream = []
+  cancelStream = await divideAndConquer(exchange, startingBlock, latestBlock, 'Cancel', cancelStream)
+  //console.log("withdrawStream :", withdrawStream)
+  
+  // Format allCancelledOrders
+  const allCancelledOrders = []
+  await cancelStream.map(cancelOrders => {
+    cancelOrders.map((event) => {
+      //console.log(event.returnValues)
+      allCancelledOrders.push(event.returnValues)
+    })
+  })
+
   // Dispatch cancelledOrders to the redux store (update the application state)
-  dispatch(cancelledOrdersLoaded(cancelledOrders));
+  dispatch(cancelledOrdersLoaded(allCancelledOrders));
 
   // Fetch filled orders with the "Trade" event stream
   //const tradeStream = await exchange.getPastEvents("Trade", { fromBlock: 0, toBlock: 'latest' });  // Ganache
-  const tradeStream = await exchange.getPastEvents("Trade", { fromBlock: latestBlock - 4999, toBlock: latestBlock });
+  //const tradeStream = await exchange.getPastEvents("Trade", { fromBlock: latestBlock - 4999, toBlock: latestBlock });
+  let tradeStream = []
+  tradeStream = await divideAndConquer(exchange, startingBlock, latestBlock, 'Trade', tradeStream)
+
   // Format filledOrders
-  const filledOrders = tradeStream.map((event) => event.returnValues);
+  const allFilledOrders = []
+  await tradeStream.map(filledOrders => {
+    filledOrders.map((event) => {
+      //console.log(event.returnValues)
+      allFilledOrders.push(event.returnValues)
+    })
+  })
+
   // Dispatch filledOrders to the redux store (update the application state)
-  dispatch(filledOrdersLoaded(filledOrders));
+  dispatch(filledOrdersLoaded(allFilledOrders));
 
   // Fetch all orders with the "Order" event stream
   //const orderStream = await exchange.getPastEvents("Order", { fromBlock: 0, toBlock: 'latest' });  // Ganache
-  const orderStream = await exchange.getPastEvents("Order", { fromBlock: latestBlock - 4999, toBlock: latestBlock });
+  //const orderStream = await exchange.getPastEvents("Order", { fromBlock: latestBlock - 4999, toBlock: latestBlock });
+
+  let orderStream = []
+  orderStream = await divideAndConquer(exchange, startingBlock, latestBlock, 'Order', orderStream)
+
   // Format allOrders
-  const allOrders = orderStream.map((event) => event.returnValues);
+  const allOrders = []
+  await orderStream.map(orders => {
+    orders.map((event) => {
+      //console.log(event.returnValues)
+      allOrders.push(event.returnValues)
+    })
+  })
+
   // Dispatch allOrders to the redux store (update the application state)
   dispatch(allOrdersLoaded(allOrders));
   //console.log("All Orders have been loaded to the redux store")
@@ -221,9 +256,8 @@ export const cancelOrder = async (dispatch, exchange, order, account) => {
       }
     })
     .once('receipt', (receipt) => {
-      dispatch(orderCancelled(receipt.events.Cancel.returnValuess))
+      dispatch(orderCancelled(receipt.events.Cancel.returnValues))
     })
-    
 }
 
 export const fillOrder = async (dispatch, exchange, order, account) => {
@@ -285,6 +319,7 @@ export const depositEther = (dispatch, exchange, web3, etherDepositAmount, accou
       }
     })
     .once('receipt', (receipt) => {
+      console.log(receipt)
       dispatch(depositCompleted(receipt.events.Deposit.returnValues))
     })
 }
@@ -408,15 +443,25 @@ export const makeSellOrder = (dispatch,exchange,token,web3,order,account) => {
 export const loadAllWithdraws = async (exchange, dispatch,latestBlock,provider) => {
   // Fetch withdraws with the "Withdraw" event stream
   //const withdrawStream = await exchange.getPastEvents("Withdraw", { fromBlock: 0, toBlock: 'latest' });   // For ganache
-  //const withdrawStream = await exchange.getPastEvents("Withdraw", { fromBlock: latestBlock - 4999, toBlock: latestBlock });
+
+  //const withdrawStreamLatestBlock = await exchange.getPastEvents("Withdraw", { fromBlock: latestBlock - 4999, toBlock: latestBlock });
+  //console.log("withdrawStreamLatestBlock : ",withdrawStreamLatestBlock)
   
   const startingBlock = await retrieveStartinBlockDependingCurrentNetwork(provider)
 
   let withdrawStream = []
   withdrawStream = await divideAndConquer(exchange, startingBlock, latestBlock, 'Withdraw', withdrawStream)
-  //console.log("withdrawStream :", withdrawStream[0])
-  // Format withdraws
-  const allWithdraws = withdrawStream[0].map((event) => event.returnValues );
+  //console.log("withdrawStream :", withdrawStream)
+  
+  // Format allWithdraws
+  const allWithdraws = []
+  await withdrawStream.map(withdraws => {
+    withdraws.map((event) => {
+      //console.log(event.returnValues)
+      allWithdraws.push(event.returnValues)
+    })
+  })
+
   // Dispatch withdraws to the redux store
   dispatch(allWithdrawsLoaded(allWithdraws));
   //console.log("Withdraws have been loaded to the redux store")
@@ -425,12 +470,25 @@ export const loadAllWithdraws = async (exchange, dispatch,latestBlock,provider) 
 
 ////////////////////// loadAllDeposits //////////////////////
 // It is triggered since the application is loaded for the first time & also each time a new deposit is made, the depositStream gets updated
-export const loadAllDeposits = async (exchange,dispatch,latestBlock) => {
+export const loadAllDeposits = async (exchange,dispatch,latestBlock,provider) => {
   // Fetch deposits with the "Deposit" event stream
   //const depositStream = await exchange.getPastEvents("Deposit", { fromBlock: 0, toBlock: 'latest' }); For ganache
-  const depositStream = await exchange.getPastEvents("Deposit", { fromBlock: latestBlock - 4999, toBlock: latestBlock });
+  //const depositStream = await exchange.getPastEvents("Deposit", { fromBlock: latestBlock - 4999, toBlock: latestBlock });
+
+  const startingBlock = await retrieveStartinBlockDependingCurrentNetwork(provider)
+
+  let depositStream = []
+  depositStream = await divideAndConquer(exchange, startingBlock, latestBlock, 'Deposit', depositStream)
+
   // Format deposits
-  const allDeposits = depositStream.map((event) => event.returnValues);
+  const allDeposits = []
+  await depositStream.map(deposits => {
+    deposits.map((event) => {
+      //console.log(event.returnValues)
+      allDeposits.push(event.returnValues)
+    })
+  })
+  
   // Dispatch deposits to the redux store
   dispatch(allDepositsLoaded(allDeposits));
   //console.log("Withdraws have been loaded to the redux store")
@@ -479,6 +537,7 @@ const divideAndConquer = async (contract, startingBlock, current_block, event_na
   } else {
     //////////// GETTING PAST EVENTS FOR THE LAST BLOCK ////////////
     console.log(`Getting past ${event_name} events from block: ${startingBlock} to ${current_block}`)
+    
     const eventsStream = await contract.getPastEvents(
       `${event_name}`,
         //'Deposit',
@@ -487,6 +546,8 @@ const divideAndConquer = async (contract, startingBlock, current_block, event_na
         toBlock: current_block
       }
     )
+    //console.log("events detected in the last block: ", eventsStream)
+    //console.log("pastEvents state when searching in the last block :" , pastEvents)
     //console.log(`Past ${event_name} events:`, eventsStream)
     pastEvents.push(eventsStream);
     //console.log("Last range of blocks is: ", (current_block - startingBlock))
